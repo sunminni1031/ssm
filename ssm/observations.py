@@ -66,7 +66,7 @@ class Observations(object):
     def log_likelihoods(self, data, input, mask, tag):
         raise NotImplementedError
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         raise NotImplementedError
 
     def m_step(self, expectations, datas, inputs, masks, tags,
@@ -136,10 +136,11 @@ class GaussianObservations(Observations):
         return np.column_stack([stats.multivariate_normal_logpdf(data, mu, Sigma)
                                for mu, Sigma in zip(mus, Sigmas)])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, mus = self.D, self.mus
         sqrt_Sigmas = self._sqrt_Sigmas if with_noise else np.zeros((self.K, self.D, self.D))
-        return mus[z] + np.dot(sqrt_Sigmas[z], npr.randn(D))
+        tmp_rs = npr if rs is None else rs
+        return mus[z] + np.dot(sqrt_Sigmas[z], tmp_rs.randn(D))
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         K, D = self.K, self.D
@@ -187,9 +188,10 @@ class ExponentialObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.exponential_logpdf(data[:, None, :], lambdas, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         lambdas = np.exp(self.log_lambdas)
-        return npr.exponential(1/lambdas[z])
+        tmp_rs = npr if rs is None else rs
+        return tmp_rs.exponential(1/lambdas[z])
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         x = np.concatenate(datas)
@@ -236,10 +238,11 @@ class DiagonalGaussianObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.diagonal_gaussian_logpdf(data[:, None, :], mus, sigmas, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, mus = self.D, self.mus
         sigmas = np.exp(self._log_sigmasq) if with_noise else np.zeros((self.K, self.D))
-        return mus[z] + np.sqrt(sigmas[z]) * npr.randn(D)
+        tmp_rs = npr if rs is None else rs
+        return mus[z] + np.sqrt(sigmas[z]) * tmp_rs.randn(D)
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         x = np.concatenate(datas)
@@ -291,11 +294,12 @@ class StudentsTObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.independent_studentst_logpdf(data[:, None, :], mus, sigmas, nus, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
+        tmp_rs = npr if rs is None else rs
         D, mus, sigmas, nus = self.D, self.mus, self.sigmasq, self.nus
-        tau = npr.gamma(nus[z] / 2.0, 2.0 / nus[z])
+        tau = tmp_rs.gamma(nus[z] / 2.0, 2.0 / nus[z])
         sigma = sigmas[z] / tau if with_noise else 0
-        return mus[z] + np.sqrt(sigma) * npr.randn(D)
+        return mus[z] + np.sqrt(sigma) * tmp_rs.randn(D)
 
     def smooth(self, expectations, data, input, tag):
         """
@@ -485,11 +489,12 @@ class MultivariateStudentsTObservations(Observations):
         for k in range(K):
             self._log_nus[k] = np.log(generalized_newton_studentst_dof(E_taus[k], E_logtaus[k]))
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, mus, Sigmas, nus = self.D, self.mus, self.Sigmas, self.nus
-        tau = npr.gamma(nus[z] / 2.0, 2.0 / nus[z])
+        tmp_rs = npr if rs is None else rs
+        tau = tmp_rs.gamma(nus[z] / 2.0, 2.0 / nus[z])
         sqrt_Sigma = np.linalg.cholesky(Sigmas[z] / tau) if with_noise else 0
-        return mus[z] + np.dot(sqrt_Sigma, npr.randn(D))
+        return mus[z] + np.dot(sqrt_Sigma, tmp_rs.randn(D))
 
     def smooth(self, expectations, data, input, tag):
         """
@@ -520,9 +525,10 @@ class BernoulliObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.bernoulli_logpdf(data[:, None, :], self.logit_ps, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         ps = 1 / (1 + np.exp(self.logit_ps))
-        return npr.rand(self.D) < ps[z]
+        tmp_rs = npr if rs is None else rs
+        return tmp_rs.rand(self.D) < ps[z]
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         x = np.concatenate(datas)
@@ -562,9 +568,10 @@ class PoissonObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.poisson_logpdf(data[:, None, :], lambdas, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         lambdas = np.exp(self.log_lambdas)
-        return npr.poisson(lambdas[z])
+        tmp_rs = npr if rs is None else rs
+        return tmp_rs.poisson(lambdas[z])
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         x = np.concatenate(datas)
@@ -605,9 +612,10 @@ class CategoricalObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.categorical_logpdf(data[:, None, :], self.logits, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         ps = np.exp(self.logits - logsumexp(self.logits, axis=2, keepdims=True))
-        return np.array([npr.choice(self.C, p=ps[z, d]) for d in range(self.D)])
+        tmp_rs = npr if rs is None else rs
+        return np.array([tmp_rs.choice(self.C, p=ps[z, d]) for d in range(self.D)])
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         x = np.concatenate(datas)
@@ -690,17 +698,18 @@ class InputDrivenObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.categorical_logpdf(data[:, None, :], time_dependent_logits[:, :, None, :], mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         assert self.D == 1, "InputDrivenObservations written for D = 1!"
         if input.ndim == 1 and input.shape == (self.M,): # if input is vector of size self.M (one time point), expand dims to be (1, M)
             input = np.expand_dims(input, axis=0)
         time_dependent_logits = self.calculate_logits(input)  # size TxKxC
         ps = np.exp(time_dependent_logits)
         T = time_dependent_logits.shape[0]
+        tmp_rs = npr if rs is None else rs
         if T == 1:
-            sample = np.array([npr.choice(self.C, p=ps[t, z]) for t in range(T)])
+            sample = np.array([tmp_rs.choice(self.C, p=ps[t, z]) for t in range(T)])
         elif T > 1:
-            sample = np.array([npr.choice(self.C, p=ps[t, z[t]]) for t in range(T)])
+            sample = np.array([tmp_rs.choice(self.C, p=ps[t, z[t]]) for t in range(T)])
         return sample
 
     def m_step(self, expectations, datas, inputs, masks, tags, optimizer = "bfgs", **kwargs):
@@ -1039,18 +1048,21 @@ class AutoRegressiveObservations(_AutoRegressiveObservationsBase):
                         ExuxuTs[k, l1*D:(l1+1)*D, l2*D:(l2+1)*D] += np.einsum('t,ti,tj->ij', w, x1, x2)
 
                     # Cross terms between lagged data and inputs and bias
-                    ExuxuTs[k, l1*D:(l1+1)*D, D*lags:D*lags+M] += np.einsum('t,ti,tj->ij', w, x1, u)
+                    if M > 0:
+                        ExuxuTs[k, l1*D:(l1+1)*D, D*lags:D*lags+M] += np.einsum('t,ti,tj->ij', w, x1, u)
                     ExuxuTs[k, l1*D:(l1+1)*D, -1] += np.einsum('t,ti->i', w, x1)
 
-                ExuxuTs[k, D*lags:D*lags+M, D*lags:D*lags+M] += np.einsum('t,ti,tj->ij', w, u, u)
-                ExuxuTs[k, D*lags:D*lags+M, -1] += np.einsum('t,ti->i', w, u)
+                if M > 0:
+                    ExuxuTs[k, D*lags:D*lags+M, D*lags:D*lags+M] += np.einsum('t,ti,tj->ij', w, u, u)
+                    ExuxuTs[k, D*lags:D*lags+M, -1] += np.einsum('t,ti->i', w, u)
                 ExuxuTs[k, -1, -1] += np.sum(w)
 
                 # ExuyTs[k]
                 for l1 in range(lags):
                     x1 = data[lags - l1 - 1:-l1 - 1]
                     ExuyTs[k, l1*D:(l1+1)*D, :] += np.einsum('t,ti,tj->ij', w, x1, y)
-                ExuyTs[k, D*lags:D*lags+M, :] += np.einsum('t,ti,tj->ij', w, u, y)
+                if M > 0:
+                    ExuyTs[k, D*lags:D*lags+M, :] += np.einsum('t,ti,tj->ij', w, u, y)
                 ExuyTs[k, -1, :] += np.einsum('t,ti->i', w, y)
 
                 # EyyTs[k] and Ens[k]
@@ -1168,13 +1180,13 @@ class AutoRegressiveObservations(_AutoRegressiveObservationsBase):
         self.bs = bs
         self.Sigmas = Sigmas
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, As, bs, Vs = self.D, self.As, self.bs, self.Vs
-
+        tmp_rs = npr if rs is None else rs
         if xhist.shape[0] < self.lags:
             # Sample from the initial distribution
             S = np.linalg.cholesky(self.Sigmas_init[z]) if with_noise else 0
-            return self.mu_init[z] + np.dot(S, npr.randn(D))
+            return self.mu_init[z] + np.dot(S, tmp_rs.randn(D))
         else:
             # Sample from the autoregressive distribution
             mu = Vs[z].dot(input[:self.M]) + bs[z]
@@ -1183,7 +1195,7 @@ class AutoRegressiveObservations(_AutoRegressiveObservationsBase):
                 mu += Al.dot(xhist[-l-1])
 
             S = np.linalg.cholesky(self.Sigmas[z]) if with_noise else 0
-            return mu + np.dot(S, npr.randn(D))
+            return mu + np.dot(S, tmp_rs.randn(D))
 
     def neg_hessian_expected_log_dynamics_prob(self, Ez, data, input, mask, tag=None):
         assert np.all(mask), "Cannot compute negative Hessian of autoregressive obsevations with missing data."
@@ -1452,13 +1464,13 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
                 sigma = np.average(sqerr, weights=weights[:, k], axis=0) + 1e-16
                 self._log_sigmasq[k, d] = np.log(sigma)
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, As, bs, sigmas = self.D, self.As, self.bs, self.sigmasq
-
+        tmp_rs = npr if rs is None else rs
         # Sample the initial condition
         if xhist.shape[0] < self.lags:
             sigma_init = self.sigmasq_init[z] if with_noise else 0
-            return self.mu_init[z] + np.sqrt(sigma_init) * npr.randn(D)
+            return self.mu_init[z] + np.sqrt(sigma_init) * tmp_rs.randn(D)
 
         # Otherwise sample the AR model
         muz = bs[z].copy()
@@ -1466,7 +1478,7 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
             muz += As[z, :, lag] * xhist[-lag - 1]
 
         sigma = sigmas[z] if with_noise else 0
-        return muz + np.sqrt(sigma) * npr.randn(D)
+        return muz + np.sqrt(sigma) * tmp_rs.randn(D)
 
 
 # Robust autoregressive models with diagonal Student's t noise
@@ -1641,19 +1653,20 @@ class _RobustAutoRegressiveObservationsMixin(object):
         for k in range(K):
             self._log_nus[k] = np.log(generalized_newton_studentst_dof(E_taus[k], E_logtaus[k]))
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, As, bs, Vs, Sigmas, nus = self.D, self.As, self.bs, self.Vs, self.Sigmas, self.nus
+        tmp_rs = npr if rs is None else rs
         if xhist.shape[0] < self.lags:
             S = np.linalg.cholesky(self.Sigmas_init[z]) if with_noise else 0
-            return self.mu_init[z] + np.dot(S, npr.randn(D))
+            return self.mu_init[z] + np.dot(S, tmp_rs.randn(D))
         else:
             mu = Vs[z].dot(input[:self.M]) + bs[z]
             for l in range(self.lags):
                 mu += As[z][:,l*D:(l+1)*D].dot(xhist[-l-1])
 
-            tau = npr.gamma(nus[z] / 2.0, 2.0 / nus[z])
+            tau = tmp_rs.gamma(nus[z] / 2.0, 2.0 / nus[z])
             S = np.linalg.cholesky(Sigmas[z] / tau) if with_noise else 0
-            return mu + np.dot(S, npr.randn(D))
+            return mu + np.dot(S, tmp_rs.randn(D))
 
 
 class RobustAutoRegressiveObservations(_RobustAutoRegressiveObservationsMixin, AutoRegressiveObservations):
@@ -1834,19 +1847,20 @@ class AltRobustAutoRegressiveDiagonalNoiseObservations(AutoRegressiveDiagonalNoi
             for d in range(D):
                 self._log_nus[k, d] = np.log(generalized_newton_studentst_dof(E_taus[k, d], E_logtaus[k, d]))
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, As, bs, sigmasq, nus = self.D, self.As, self.bs, self.sigmasq, self.nus
+        tmp_rs = npr if rs is None else rs
         if xhist.shape[0] < self.lags:
             sigma_init = self.sigmasq_init[z] if with_noise else 0
-            return self.mu_init[z] + np.sqrt(sigma_init) * npr.randn(D)
+            return self.mu_init[z] + np.sqrt(sigma_init) * tmp_rs.randn(D)
         else:
             mu = bs[z].copy()
             for l in range(self.lags):
                 mu += As[z][:,l*D:(l+1)*D].dot(xhist[-l-1])
 
-            tau = npr.gamma(nus[z] / 2.0, 2.0 / nus[z])
+            tau = tmp_rs.gamma(nus[z] / 2.0, 2.0 / nus[z])
             var = sigmasq[z] / tau if with_noise else 0
-            return mu + np.sqrt(var) * npr.randn(D)
+            return mu + np.sqrt(var) * tmp_rs.randn(D)
 
 
 class VonMisesObservations(Observations):
@@ -1873,9 +1887,10 @@ class VonMisesObservations(Observations):
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return stats.vonmises_logpdf(data[:, None, :], mus, kappas, mask=mask[:, None, :])
 
-    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         D, mus, kappas = self.D, self.mus, np.exp(self.log_kappas)
-        return npr.vonmises(self.mus[z], kappas[z], D)
+        tmp_rs = npr if rs is None else rs
+        return tmp_rs.vonmises(self.mus[z], kappas[z], D)
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
 
