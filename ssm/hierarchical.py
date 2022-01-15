@@ -110,6 +110,9 @@ class HierarchicalTransitions(_Hierarchical):
     def log_transition_matrices(self, data, input, mask, tag):
         return self.children[tag].log_transition_matrices(data, input, mask, tag)
 
+    def transition_matrices(self, data, input, mask, tag):
+        return np.exp(self.log_transition_matrices(data, input, mask, tag))
+
 
 class HierarchicalObservations(_Hierarchical):
     def log_likelihoods(self, data, input, mask, tag):
