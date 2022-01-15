@@ -73,7 +73,7 @@ class _Hierarchical(object):
         # expected log joint
         def _expected_log_joint(expectations):
             elbo = self.log_prior()
-            for data, input, mask, tag, (expected_states, expected_joints) \
+            for data, input, mask, tag, (expected_states, expected_joints, _) \
                 in zip(datas, inputs, masks, tags, expectations):
 
                 if hasattr(self.children[tag], 'log_initial_state_distn'):
