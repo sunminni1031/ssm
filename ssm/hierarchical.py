@@ -48,7 +48,7 @@ class _Hierarchical(object):
             self.children[tag].permute(perm)
 
     @ensure_args_are_lists
-    def initialize(self, datas, inputs=None, masks=None, tags=None):
+    def initialize(self, datas, inputs=None, masks=None, tags=None, init_method="random"):
         self.parent.initialize(datas, inputs=inputs, masks=masks, tags=tags)
         for tag in self.tags:
             self.children[tag].params = copy.deepcopy(self.parent.params)
