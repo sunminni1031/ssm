@@ -36,9 +36,9 @@ class HMM(object):
     def __init__(self, K, D, M=0, init_state_distn=None,
                  transitions='standard',
                  transition_kwargs=None,
-                 hierarchical_transition_tags=None,
+                 hierarchical_transition_tags=None, hier_trans_lmbda=0.01,
                  observations="gaussian", observation_kwargs=None,
-                 hierarchical_observation_tags=None, **kwargs):
+                 hierarchical_observation_tags=None, hier_obs_lmbda=0.01, **kwargs):
 
         # Make the initial state distribution
         if init_state_distn is None:
@@ -68,7 +68,7 @@ class HMM(object):
             transition_kwargs = transition_kwargs or {}
             transitions = \
                 hier.HierarchicalTransitions(transition_classes[transitions], K, D, M=M,
-                                        tags=hierarchical_transition_tags,
+                                        tags=hierarchical_transition_tags, lmbda=hier_trans_lmbda,
                                         **transition_kwargs) \
                 if hierarchical_transition_tags is not None \
                 else transition_classes[transitions](K, D, M=M, **transition_kwargs)
@@ -113,7 +113,7 @@ class HMM(object):
             observation_kwargs = observation_kwargs or {}
             observations = \
                 hier.HierarchicalObservations(observation_classes[observations], K, D, M=M,
-                                        tags=hierarchical_observation_tags,
+                                        tags=hierarchical_observation_tags, lmbda=hier_obs_lmbda,
                                         **observation_kwargs) \
                 if hierarchical_observation_tags is not None \
                 else observation_classes[observations](K, D, M=M, **observation_kwargs)
