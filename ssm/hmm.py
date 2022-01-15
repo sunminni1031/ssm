@@ -72,9 +72,9 @@ class HMM(object):
                                         **transition_kwargs) \
                 if hierarchical_transition_tags is not None \
                 else transition_classes[transitions](K, D, M=M, **transition_kwargs)
-        if not isinstance(transitions, trans.Transitions):
-            raise TypeError("'transitions' must be a subclass of"
-                            " ssm.transitions.Transitions")
+        # if not isinstance(transitions, trans.Transitions):
+        #     raise TypeError("'transitions' must be a subclass of"
+        #                     " ssm.transitions.Transitions")
 
         # This is the master list of observation classes.
         # When you create a new observation class, add it here.
@@ -117,9 +117,9 @@ class HMM(object):
                                         **observation_kwargs) \
                 if hierarchical_observation_tags is not None \
                 else observation_classes[observations](K, D, M=M, **observation_kwargs)
-        if not isinstance(observations, obs.Observations):
-            raise TypeError("'observations' must be a subclass of"
-                            " ssm.observations.Observations")
+        # if not isinstance(observations, obs.Observations):
+        #     raise TypeError("'observations' must be a subclass of"
+        #                     " ssm.observations.Observations")
 
         self.K, self.D, self.M = K, D, M
         self.init_state_distn = init_state_distn
