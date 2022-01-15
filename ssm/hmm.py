@@ -144,8 +144,17 @@ class HMM(object):
         Initialize parameters given data.
         """
         self.init_state_distn.initialize(datas, inputs=inputs, masks=masks, tags=tags)
-        self.transitions.initialize(datas, inputs=inputs, masks=masks, tags=tags)
-        self.observations.initialize(datas, inputs=inputs, masks=masks, tags=tags, init_method=init_method)
+        if isinstance(self.transitions, hier._Hierarchical):
+            for tag in tags:
+                self.transitions.children[tag].initialize(datas, inputs=inputs, masks=masks, tags=None)
+        else:
+            self.transitions.initialize(datas, inputs=inputs, masks=masks, tags=tags)
+        if isinstance(self.observations, hier._Hierarchical):
+            for tag in tags:
+                self.observations.children[tag].initialize(datas, inputs=inputs, masks=masks,
+                                                           tags=None, init_method=init_method)
+        else:
+            self.observations.initialize(datas, inputs=inputs, masks=masks, tags=tags, init_method=init_method)
 
     def permute(self, perm):
         """
