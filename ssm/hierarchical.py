@@ -6,7 +6,7 @@ import autograd.numpy.random as npr
 from autograd.scipy.stats import norm
 from autograd.misc.optimizers import sgd, adam
 from autograd import grad
-
+from autograd.scipy.special import logsumexp
 from ssm.util import ensure_args_are_lists
 
 
@@ -15,10 +15,10 @@ class _Hierarchical(object):
     Base class for hierarchical models.  Maintains a parent class and a
     bunch of children with their own perturbed parameters.
     """
-    def __init__(self, base_class, *args, tags=(None,), lmbda=0.01, **kwargs):
+    def __init__(self, base_class, *args, M=0, tags=(None,), lmbda=0.01, **kwargs):
         # Variance of child params around parent params
         self.lmbda = lmbda
-
+        self.M = M
         # Top-level parameters (parent)
         self.parent = base_class(*args, **kwargs)
 
