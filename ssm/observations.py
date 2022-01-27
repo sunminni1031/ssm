@@ -838,7 +838,7 @@ class _AutoRegressiveObservationsBase(Observations):
 
     where L is the number of lags and u_t is the input.
     """
-    def __init__(self, K, D, M=0, lags=1):
+    def __init__(self, K, D, M=0, lags=1, bias=True):
         super(_AutoRegressiveObservationsBase, self).__init__(K, D, M)
 
         # Distribution over initial point
@@ -847,9 +847,9 @@ class _AutoRegressiveObservationsBase(Observations):
         # AR parameters
         assert lags > 0
         self.lags = lags
-        self.bs = npr.randn(K, D)
+        self.bs = npr.randn(K, D) if bias else np.zeros((K, D))
         self.Vs = npr.randn(K, D, M)
-
+        self.bias = bias
         # Inheriting classes may treat _As differently
         self._As = None
 
@@ -863,16 +863,23 @@ class _AutoRegressiveObservationsBase(Observations):
 
     @property
     def params(self):
-        return self.As, self.bs, self.Vs
+        if self.bias:
+            return self.As, self.bs, self.Vs
+        else:
+            return self.As, self.Vs
 
     @params.setter
     def params(self, value):
-        self.As, self.bs, self.Vs = value
+        if self.bias:
+            self.As, self.bs, self.Vs = value
+        else:
+            self.As, self.Vs = value
 
     def permute(self, perm):
         self.mu_init = self.mu_init[perm]
         self.As = self.As[perm]
-        self.bs = self.bs[perm]
+        if self.bias:
+            self.bs = self.bs[perm]
         self.Vs = self.Vs[perm]
 
     def _compute_mus(self, data, input, mask, tag):
@@ -921,13 +928,13 @@ class AutoRegressiveObservations(_AutoRegressiveObservationsBase):
 
     The parameters are fit via maximum likelihood estimation.
     """
-    def __init__(self, K, D, M=0, lags=1,
+    def __init__(self, K, D, M=0, lags=1, bias=True,
                  l2_penalty_A=1e-8,
                  l2_penalty_b=1e-8,
                  l2_penalty_V=1e-8,
                  nu0=1e-4, Psi0=1e-4):
         super(AutoRegressiveObservations, self).\
-            __init__(K, D, M, lags=lags)
+            __init__(K, D, M, lags=lags, bias=bias)
 
         # Initialize the dynamics and the noise covariances
         self._As = .80 * np.array([
@@ -1152,11 +1159,18 @@ class AutoRegressiveObservations(_AutoRegressiveObservationsBase):
         bs = np.zeros((K, D))
         Sigmas = np.zeros((K, D, D))
         for k in range(K):
-            Wk = np.linalg.solve(ExuxuTs[k] + self.J0[k], ExuyTs[k] + self.h0[k]).T
-            As[k] = Wk[:, :D * lags]
-            Vs[k] = Wk[:, D * lags:-1]
-            bs[k] = Wk[:, -1]
-
+            mtrx1 = ExuxuTs[k] + self.J0[k]
+            mtrx2 = ExuyTs[k] + self.h0[k]
+            if self.bias:
+                Wk = np.linalg.solve(mtrx1, mtrx2).T
+                As[k] = Wk[:, :D * lags]
+                Vs[k] = Wk[:, D * lags:-1]
+                bs[k] = Wk[:, -1]
+            else:
+                Wk = np.linalg.solve(mtrx1[:-1][:, :-1], mtrx2[:-1]).T
+                As[k] = Wk[:, :D * lags]
+                Vs[k] = Wk[:, D * lags:]
+                Wk = np.concatenate((Wk, np.zeros((self.D, 1))), axis=1)
             # Solve for the MAP estimate of the covariance
             EWxyT =  Wk @ ExuyTs[k]
             sqerr = EyyTs[k] - EWxyT.T - EWxyT + Wk @ ExuxuTs[k] @ Wk.T
@@ -1226,12 +1240,12 @@ class AutoRegressiveObservationsNoInput(AutoRegressiveObservations):
     """
     AutoRegressive observation model without the inputs.
     """
-    def __init__(self, K, D, M=0, lags=1,
+    def __init__(self, K, D, M=0, lags=1, bias=True,
                  l2_penalty_A=1e-8,
                  l2_penalty_b=1e-8):
 
         super(AutoRegressiveObservationsNoInput, self).\
-            __init__(K, D, M=0, lags=lags,
+            __init__(K, D, M=0, lags=lags, bias=bias,
                      l2_penalty_A=l2_penalty_A,
                      l2_penalty_b=l2_penalty_b)
 
