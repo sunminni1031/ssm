@@ -262,6 +262,51 @@ class InputDrivenTransitions(StickyTransitions):
         T, D = data.shape
         return np.zeros((T-1, D, D))
 
+
+class InputDeterminedTransitions(object):
+    def __init__(self, K, D, M=0):
+        self.K, self.D, self.M = K, D, M
+        assert self.K == 2
+    @property
+    def params(self):
+        return
+
+    @params.setter
+    def params(self, value):
+        return
+
+    @ensure_args_are_lists
+    def initialize(self, datas, inputs=None, masks=None, tags=None):
+        return
+
+    def permute(self, perm):
+        return
+
+    def log_prior(self):
+        return 0
+
+    def transition_matrices(self, data, input, mask, tag):
+        T = data.shape[0]
+        assert input.shape[0] == T
+        Ps = np.zeros((T - 1, self.K, self.K))
+        for i in range(1, T):
+            if input[i, 0] > 0.5:
+                Ps[i - 1, :, 0] = 1.0
+                Ps[i - 1, :, 1] = 0.0
+            else:
+                Ps[i - 1, :, 0] = 0.0
+                Ps[i - 1, :, 1] = 1.0
+        return Ps
+
+    def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
+        return
+
+    def neg_hessian_expected_log_trans_prob(self, data, input, mask, tag, expected_joints):
+        # Return (T-1, D, D) array of blocks for the diagonal of the Hessian
+        T, D = data.shape
+        return np.zeros((T - 1, D, D))
+
+
 class RecurrentTransitions(InputDrivenTransitions):
     """
     Generalization of the input driven HMM in which the observations serve as future inputs
