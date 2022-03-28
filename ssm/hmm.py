@@ -17,6 +17,7 @@ import ssm.transitions as trans
 import ssm.init_state_distns as isd
 import ssm.hierarchical as hier
 import ssm.emissions as emssn
+from copy import deepcopy
 
 __all__ = ['HMM', 'HSMM']
 
