@@ -441,6 +441,13 @@ class HMM(object):
         E step: compute E[z_t] and E[z_t, z_{t+1}] with message passing;
         M-step: analytical maximization of E_{p(z | x)} [log p(x, z; theta)].
         """
+        if isinstance(self.transitions, trans.InputDeterminedTransitions):
+            obs_inputs = deepcopy(inputs)
+            for i in range(len(obs_inputs)):
+                obs_inputs[i][:, 0] = 0
+        else:
+            obs_inputs = inputs
+
         lls  = [self.log_probability(datas, inputs, masks, tags)]
 
         pbar = ssm_pbar(num_iters, verbose, "LP: {:.1f}", [lls[-1]])
@@ -454,7 +461,7 @@ class HMM(object):
             # M step: maximize expected log joint wrt parameters
             self.init_state_distn.m_step(expectations, datas, inputs, masks, tags, **init_state_mstep_kwargs)
             self.transitions.m_step(expectations, datas, inputs, masks, tags, **transitions_mstep_kwargs)
-            self.observations.m_step(expectations, datas, inputs, masks, tags, **observations_mstep_kwargs)
+            self.observations.m_step(expectations, datas, obs_inputs, masks, tags, **observations_mstep_kwargs)
 
             # Store progress
             lls.append(self.log_prior() + sum([ll for (_, _, ll) in expectations]))
