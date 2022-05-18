@@ -291,11 +291,11 @@ class InputDeterminedTransitions(object):
         Ps = np.zeros((T - 1, self.K, self.K))
         for i in range(1, T):
             if input[i, 0] > 0.5:
-                Ps[i - 1, :, 0] = 1.0
-                Ps[i - 1, :, 1] = 0.0
-            else:
                 Ps[i - 1, :, 0] = 0.0
                 Ps[i - 1, :, 1] = 1.0
+            else:
+                Ps[i - 1, :, 0] = 1.0
+                Ps[i - 1, :, 1] = 0.0
         return Ps
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
