@@ -113,6 +113,38 @@ def ensure_args_are_lists(f):
     return wrapper
 
 
+def ensure_args_are_lists_diff_inpt(f):
+    def wrapper(self, datas, trs_inputs=None, obs_inputs=None, masks=None, tags=None, **kwargs):
+        datas = [datas] if not isinstance(datas, (list, tuple)) else datas
+
+        M = (self.M,) if isinstance(self.M, int) else self.M
+        assert isinstance(M, tuple)
+
+        if trs_inputs is None:
+            trs_inputs = [np.zeros((data.shape[0],) + M) for data in datas]
+        elif not isinstance(trs_inputs, (list, tuple)):
+            trs_inputs = [trs_inputs]
+
+        if obs_inputs is None:
+            obs_inputs = [np.zeros((data.shape[0],) + M) for data in datas]
+        elif not isinstance(obs_inputs, (list, tuple)):
+            obs_inputs = [obs_inputs]
+
+        if masks is None:
+            masks = [np.ones_like(data, dtype=bool) for data in datas]
+        elif not isinstance(masks, (list, tuple)):
+            masks = [masks]
+
+        if tags is None:
+            tags = [None] * len(datas)
+        elif not isinstance(tags, (list, tuple)):
+            tags = [tags]
+
+        return f(self, datas, trs_inputs=trs_inputs, obs_inputs=obs_inputs, masks=masks, tags=tags, **kwargs)
+
+    return wrapper
+
+
 def ensure_variational_args_are_lists(f):
     def wrapper(self, arg0, datas, inputs=None, masks=None, tags=None, **kwargs):
         datas = [datas] if not isinstance(datas, (list, tuple)) else datas
@@ -156,6 +188,20 @@ def ensure_args_not_none(f):
 
         mask = np.ones_like(data, dtype=bool) if mask is None else mask
         return f(self, data, input=input, mask=mask, tag=tag, **kwargs)
+    return wrapper
+
+
+def ensure_args_not_none_diff_inpt(f):
+    def wrapper(self, data, trs_input=None, obs_input=None, mask=None, tag=None, **kwargs):
+        assert data is not None
+
+        M = (self.M,) if isinstance(self.M, int) else self.M
+        assert isinstance(M, tuple)
+        trs_input = np.zeros((data.shape[0],) + M) if trs_input is None else trs_input
+        obs_input = np.zeros((data.shape[0],) + M) if obs_input is None else obs_input
+
+        mask = np.ones_like(data, dtype=bool) if mask is None else mask
+        return f(self, data, trs_input=trs_input, obs_input=obs_input, mask=mask, tag=tag, **kwargs)
     return wrapper
 
 

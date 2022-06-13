@@ -8,9 +8,9 @@ from autograd import value_and_grad
 from ssm.optimizers import adam_step, rmsprop_step, sgd_step, convex_combination
 from ssm.primitives import hmm_normalizer
 from ssm.messages import hmm_expected_states, hmm_filter, hmm_sample, viterbi
-from ssm.util import ensure_args_are_lists, ensure_args_not_none, \
-    ensure_slds_args_not_none, ensure_variational_args_are_lists, \
-    replicate, collapse, ssm_pbar
+from ssm.util import ensure_args_are_lists_diff_inpt as ensure_args_are_lists
+from ssm.util import ensure_args_not_none_diff_inpt as ensure_args_not_none
+from ssm.util import replicate, collapse, ssm_pbar
 
 import ssm.observations as obs
 import ssm.transitions as trans
