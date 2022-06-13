@@ -477,7 +477,6 @@ class HMM(object):
             verbose=2, method="em",
             initialize=True,
             init_method="random",
-            custom_inputs=False,
             **kwargs):
 
         _fitting_methods = \
