@@ -473,23 +473,12 @@ class HMM(object):
         return lls
 
     @ensure_args_are_lists
-    def fit(self, datas, inputs=None, masks=None, tags=None,
+    def fit(self, datas, trs_inputs=None, obs_inputs=None, masks=None, tags=None,
             verbose=2, method="em",
             initialize=True,
             init_method="random",
             custom_inputs=False,
             **kwargs):
-
-        if custom_inputs:
-            trs_inputs = deepcopy(inputs)
-            for i in range(len(trs_inputs)):
-                trs_inputs[i][:, 1:] = 0
-            obs_inputs = deepcopy(inputs)
-            for i in range(len(obs_inputs)):
-                obs_inputs[i][:, 0] = 0
-        else:
-            trs_inputs = inputs
-            obs_inputs = inputs
 
         _fitting_methods = \
             dict(sgd=partial(self._fit_sgd, "sgd"),
