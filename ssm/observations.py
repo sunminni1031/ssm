@@ -1573,13 +1573,13 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         return mus
 
     def log_likelihoods(self, data, input, mask, tag=None):
-        AutoRegressiveObservations.log_likelihoods(self, data, input, mask, tag=tag)
+        return AutoRegressiveObservations.log_likelihoods(self, data, input, mask, tag=tag)
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         Observations.m_step(self, expectations, datas, inputs, masks, tags, optimizer="bfgs", **kwargs)
 
     def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
-        AutoRegressiveObservations.sample_x(self, z, xhist, input=input, tag=tag, with_noise=with_noise, rs=rs)
+        return AutoRegressiveObservations.sample_x(self, z, xhist, input=input, tag=tag, with_noise=with_noise, rs=rs)
 
 
 # Robust autoregressive models with diagonal Student's t noise
