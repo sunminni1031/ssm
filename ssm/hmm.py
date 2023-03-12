@@ -305,11 +305,7 @@ class HMM(object):
             pi0 = self.init_state_distn.initial_state_distn
             Ps = self.transitions.transition_matrices(data, trs_input, mask, tag)
             log_likes = self.observations.log_likelihoods(data, obs_input, mask, tag)
-            # ll += hmm_normalizer(pi0, Ps, log_likes)
-            ##
-            dll = hmm_normalizer(pi0, Ps, log_likes)
-            ll += dll
-            ##
+            ll += hmm_normalizer(pi0, Ps, log_likes)
             assert np.isfinite(ll)
         return ll
 
@@ -437,7 +433,7 @@ class HMM(object):
         return lls
 
     def _fit_em(self, datas, trs_inputs, obs_inputs, masks, tags,
-                verbose = 2, num_iters=100, tolerance=0,
+                verbose=2, num_iters=100, tolerance=0,
                 init_state_mstep_kwargs={},
                 transitions_mstep_kwargs={},
                 observations_mstep_kwargs={},
