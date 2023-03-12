@@ -1516,15 +1516,6 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         self._As = value[:, 0, 0]
 
     @property
-    def bs(self):
-        return self.bs
-
-    @bs.setter
-    def bs(self, value):
-        assert value.shape == self.bs.shape
-        self.bs = value
-
-    @property
     def Sigmas_init(self):
         return np.matmul(self._sqrt_Sigmas_init, np.swapaxes(self._sqrt_Sigmas_init, -1, -2))
 
