@@ -1563,7 +1563,7 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         K = self.K
         T, D = data.shape
         # Instantaneous inputs, lagged data, and bias
-        mus = np.empty((K, T-self.lags, D))
+        mus = np.zeros((K, T-self.lags, D))
         for l in range(self.lags):
             mus += self._As[:, None, None] * data[None, self.lags-l-1:-l-1, :]
         mus += self.bs[:, None, :]
