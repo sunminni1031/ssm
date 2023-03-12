@@ -265,43 +265,51 @@ class InputDrivenTransitions(StickyTransitions):
         return np.zeros((T-1, D, D))
 
 
-class InputDeterminedTransitions(object):
-    def __init__(self, K, D, M=0):
-        self.K, self.D, self.M = K, D, M
-        assert self.K == 2
+class InputDeterminedTransitions(Transitions):
+    def __init__(self, K, D, M=1):
+        super(InputDeterminedTransitions, self).__init__(K, D, M=M)
+        assert M == 1
+        self._log_Ps = []
+        for i in range(2):
+            Ps = .95 * np.eye(K) + .05 * npr.rand(K, K)
+            Ps /= Ps.sum(axis=1, keepdims=True)
+            self._log_Ps.append(np.log(Ps))
+        self._log_Ps = np.array(self._log_Ps)
+
     @property
     def params(self):
-        return
+        return (self._log_Ps,)
 
     @params.setter
     def params(self, value):
-        return
-
-    @ensure_args_are_lists
-    def initialize(self, datas, inputs=None, masks=None, tags=None):
-        return
+        self._log_Ps = value[0]
 
     def permute(self, perm):
-        return
+        for i in range(2):
+            self._log_Ps[i] = self._log_Ps[i][np.ix_(perm, perm)]
 
     def log_prior(self):
         return 0
 
-    def transition_matrices(self, data, input, mask, tag):
+    def log_transition_matrices(self, data, input, mask, tag):
         T = data.shape[0]
         assert input.shape[0] == T
-        Ps = np.zeros((T - 1, self.K, self.K))
-        for i in range(1, T):
-            if input[i, 0] > 0.5:
-                Ps[i - 1, :, 0] = 0.0
-                Ps[i - 1, :, 1] = 1.0
-            else:
-                Ps[i - 1, :, 0] = 1.0
-                Ps[i - 1, :, 1] = 0.0
-        return Ps
+        _log_Ps = self._log_Ps - logsumexp(self._log_Ps, axis=2, keepdims=True)
+        log_Ps = np.empty((T-1, self.K, self.K))
+        for t in range(1, T):
+            log_Ps[t] = _log_Ps[int(input[t, 0])]
+        return log_Ps
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
-        return
+        K = self.K
+        for i in range(2):
+            P = sum(
+                [np.sum(Ezzp1[input[:, 0] == i], axis=0) for (_, Ezzp1, _), input in zip(expectations, inputs)]) + 1e-32
+            P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
+            # Set rows that are all zero to uniform
+            P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
+            log_P = np.log(P)
+            self._log_Ps[i] = log_P - logsumexp(log_P, axis=-1, keepdims=True)
 
     def neg_hessian_expected_log_trans_prob(self, data, input, mask, tag, expected_joints):
         # Return (T-1, D, D) array of blocks for the diagonal of the Hessian

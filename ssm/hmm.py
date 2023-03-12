@@ -96,6 +96,7 @@ class HMM(object):
             ar=obs.AutoRegressiveObservations,
             autoregressive=obs.AutoRegressiveObservations,
             no_input_ar=obs.AutoRegressiveObservationsNoInput,
+            scalar_no_input_ar=obs.ScalarAutoRegressiveObservationsNoInput,
             diagonal_ar=obs.AutoRegressiveDiagonalNoiseObservations,
             diagonal_autoregressive=obs.AutoRegressiveDiagonalNoiseObservations,
             independent_ar=obs.IndependentAutoRegressiveObservations,
