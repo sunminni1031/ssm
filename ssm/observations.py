@@ -1561,6 +1561,7 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         self._As = self._As[perm]
         if self.bias:
             self.bs = self.bs[perm]
+        self._sqrt_Sigmas_init = self._sqrt_Sigmas_init[perm]
         self._sqrt_Sigmas = self._sqrt_Sigmas[perm]
 
     def _compute_mus(self, data, input, mask, tag):
