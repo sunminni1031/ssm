@@ -1495,6 +1495,101 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
         return muz + np.sqrt(sigma) * tmp_rs.randn(D)
 
 
+class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
+    def __init__(self, K, D, M=0, lags=1, bias=True, nu0=1e-4, Psi0=1e-4):
+        super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias)
+        assert lags == 1
+        self._As = .80 * np.ones((K,))
+        self._sqrt_Sigmas_init = np.tile(np.eye(D)[None, ...], (K, 1, 1))
+        self._sqrt_Sigmas = npr.randn(K, D, D)
+        # Set natural parameters of inverse Wishart prior on Sigma
+        self.nu0 = nu0
+        self.Psi0 = Psi0 * np.eye(D) if np.isscalar(Psi0) else Psi0
+
+    @property
+    def As(self):
+        return np.array([Ak*np.eye(self.D) for Ak in self._As])
+
+    @As.setter
+    def As(self, value):
+        assert value.shape == (self.K, self.D, self.D)
+        self._As = value[:, 0, 0]
+
+    @property
+    def bs(self):
+        return self.bs
+
+    @bs.setter
+    def bs(self, value):
+        assert value.shape == self.bs.shape
+        self.bs = value
+
+    @property
+    def Sigmas_init(self):
+        return np.matmul(self._sqrt_Sigmas_init, np.swapaxes(self._sqrt_Sigmas_init, -1, -2))
+
+    @Sigmas_init.setter
+    def Sigmas_init(self, value):
+        assert value.shape == (self.K, self.D, self.D)
+        self._sqrt_Sigmas_init = np.linalg.cholesky(value + 1e-8 * np.eye(self.D))
+
+    @property
+    def Sigmas(self):
+        return np.matmul(self._sqrt_Sigmas, np.swapaxes(self._sqrt_Sigmas, -1, -2))
+
+    @Sigmas.setter
+    def Sigmas(self, value):
+        assert value.shape == (self.K, self.D, self.D)
+        self._sqrt_Sigmas = np.linalg.cholesky(value + 1e-8 * np.eye(self.D))
+
+    @property
+    def params(self):
+        if self.bias:
+            return self._As, self.bs, self._sqrt_Sigmas
+        else:
+            return self._As, self._sqrt_Sigmas
+
+    @params.setter
+    def params(self, value):
+        if self.bias:
+            self._As, self.bs, self._sqrt_Sigmas = value
+        else:
+            self._As, self._sqrt_Sigmas = value
+
+    def permute(self, perm):
+        self.mu_init = self.mu_init[perm]
+        self._As = self._As[perm]
+        if self.bias:
+            self.bs = self.bs[perm]
+        self._sqrt_Sigmas = self._sqrt_Sigmas[perm]
+
+    def _compute_mus(self, data, input, mask, tag):
+        """
+        Re-implement compute_mus for this class since we can do it much
+        more efficiently than in the general AR case.
+        """
+        K = self.K
+        T, D = data.shape
+        # Instantaneous inputs, lagged data, and bias
+        mus = np.empty((K, T-self.lags, D))
+        for l in range(self.lags):
+            mus += self._As[:, None, None] * data[None, self.lags-l-1:-l-1, :]
+        mus += self.bs[:, None, :]
+        # Pad with the initial condition
+        mus = np.concatenate((self.mu_init[:, None, :] * np.ones((self.K, self.lags, self.D)), mus), axis=1)
+        assert mus.shape == (self.K, T, D)
+        return mus
+
+    def log_likelihoods(self, data, input, mask, tag=None):
+        AutoRegressiveObservations.log_likelihoods(self, data, input, mask, tag=tag)
+
+    def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
+        Observations.m_step(self, expectations, datas, inputs, masks, tags, optimizer="bfgs", **kwargs)
+
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
+        AutoRegressiveObservations.sample_x(self, z, xhist, input=input, tag=tag, with_noise=with_noise, rs=rs)
+
+
 # Robust autoregressive models with diagonal Student's t noise
 class _RobustAutoRegressiveObservationsMixin(object):
     """

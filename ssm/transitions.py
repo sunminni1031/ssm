@@ -80,6 +80,7 @@ class Transitions(object):
         terms = np.array([-1 * hess(x[None,:], Ezzp1) for x, Ezzp1 in zip(data, expected_joints)])
         return terms
 
+
 class StationaryTransitions(Transitions):
     """
     Standard Hidden Markov Model with fixed initial distribution and transition matrix.
@@ -209,6 +210,7 @@ class StickyTransitions(StationaryTransitions):
         # Return (T-1, D, D) array of blocks for the diagonal of the Hessian
         T, D = data.shape
         return np.zeros((T-1, D, D))
+
 
 class InputDrivenTransitions(StickyTransitions):
     """
