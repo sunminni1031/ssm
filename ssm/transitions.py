@@ -304,7 +304,7 @@ class InputDeterminedTransitions(Transitions):
         K = self.K
         for i in range(2):
             P = sum(
-                [np.sum(Ezzp1[input[:, 0] == i], axis=0) for (_, Ezzp1, _), input in zip(expectations, inputs)]) + 1e-32
+                [np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in zip(expectations, inputs)]) + 1e-32
             P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
             # Set rows that are all zero to uniform
             P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
