@@ -297,14 +297,14 @@ class InputDeterminedTransitions(Transitions):
         _log_Ps = self._log_Ps - logsumexp(self._log_Ps, axis=2, keepdims=True)
         log_Ps = np.empty((T-1, self.K, self.K))
         for t in range(1, T):
-            log_Ps[t] = _log_Ps[int(input[t, 0])]
+            log_Ps[t-1] = _log_Ps[int(input[t, 0])]
         return log_Ps
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         K = self.K
         for i in range(2):
-            P = sum(
-                [np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in zip(expectations, inputs)]) + 1e-32
+            P = sum([np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in
+                     zip(expectations, inputs)]) + 1e-32
             P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
             # Set rows that are all zero to uniform
             P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
