@@ -167,6 +167,7 @@ class GaussianObservations(Observations):
         """
         return expectations.dot(self.mus)
 
+
 class ExponentialObservations(Observations):
     def __init__(self, K, D, M=0):
         super(ExponentialObservations, self).__init__(K, D, M)
@@ -1496,15 +1497,12 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
 
 
 class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
-    def __init__(self, K, D, M=0, lags=1, bias=True, nu0=1e-4, Psi0=1e-4):
+    def __init__(self, K, D, M=0, lags=1, bias=True):
         super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias)
         assert lags == 1
         self._As = .80 * np.ones((K,))
-        self._sqrt_Sigmas_init = np.tile(np.eye(D)[None, ...], (K, 1, 1))
-        self._sqrt_Sigmas = npr.randn(K, D, D)
-        # Set natural parameters of inverse Wishart prior on Sigma
-        self.nu0 = nu0
-        self.Psi0 = Psi0 * np.eye(D) if np.isscalar(Psi0) else Psi0
+        self._log_Sigmas_init = np.zeros((K,))
+        self._log_Sigmas = np.zeros((K,))
 
     @property
     def As(self):
@@ -1517,43 +1515,45 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
 
     @property
     def Sigmas_init(self):
-        return np.matmul(self._sqrt_Sigmas_init, np.swapaxes(self._sqrt_Sigmas_init, -1, -2))
+        return np.array([np.exp(Sk)*np.eye(self.D) for Sk in self._log_Sigmas_init])
 
     @Sigmas_init.setter
     def Sigmas_init(self, value):
         assert value.shape == (self.K, self.D, self.D)
-        self._sqrt_Sigmas_init = np.linalg.cholesky(value + 1e-8 * np.eye(self.D))
+        assert np.all(value[:, 0, 0] > 0)
+        self._log_Sigmas_init = np.log(value[:, 0, 0])
 
     @property
     def Sigmas(self):
-        return np.matmul(self._sqrt_Sigmas, np.swapaxes(self._sqrt_Sigmas, -1, -2))
+        return np.array([np.exp(Sk)*np.eye(self.D) for Sk in self._log_Sigmas])
 
     @Sigmas.setter
     def Sigmas(self, value):
         assert value.shape == (self.K, self.D, self.D)
-        self._sqrt_Sigmas = np.linalg.cholesky(value + 1e-8 * np.eye(self.D))
+        assert np.all(value[:, 0, 0] > 0)
+        self._log_Sigmas = np.log(value[:, 0, 0])
 
     @property
     def params(self):
         if self.bias:
-            return self._As, self.bs, self._sqrt_Sigmas
+            return self._As, self.bs, self._log_Sigmas
         else:
-            return self._As, self._sqrt_Sigmas
+            return self._As, self._log_Sigmas
 
     @params.setter
     def params(self, value):
         if self.bias:
-            self._As, self.bs, self._sqrt_Sigmas = value
+            self._As, self.bs, self._log_Sigmas = value
         else:
-            self._As, self._sqrt_Sigmas = value
+            self._As, self._log_Sigmas = value
 
     def permute(self, perm):
         self.mu_init = self.mu_init[perm]
         self._As = self._As[perm]
         if self.bias:
             self.bs = self.bs[perm]
-        self._sqrt_Sigmas_init = self._sqrt_Sigmas_init[perm]
-        self._sqrt_Sigmas = self._sqrt_Sigmas[perm]
+        self._log_Sigmas_init = self._log_Sigmas_init[perm]
+        self._log_Sigmas = self._log_Sigmas[perm]
 
     def _compute_mus(self, data, input, mask, tag):
         """
@@ -1576,7 +1576,50 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         return AutoRegressiveObservations.log_likelihoods(self, data, input, mask, tag=tag)
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
-        Observations.m_step(self, expectations, datas, inputs, masks, tags, optimizer="bfgs", **kwargs)
+        K, D, M, lags = self.K, self.D, self.M, self.lags
+        ExTx = np.zeros((K,))
+        ExTy = np.zeros((K,))
+        EyTy = np.zeros((K,))
+        Ex = np.zeros((K, D))
+        Ey = np.zeros((K, D))
+        En = np.zeros((K,))
+        for (Ez, _, _), data, input in zip(expectations, datas, inputs):
+            y = data[lags:]
+            x = data[lags-1:-1]
+            for k in range(K):
+                w = Ez[lags:, k]
+                ExTx[k] += np.einsum('t,ti,ti', w, x, x)
+                ExTy[k] += np.einsum('t,ti,ti', w, x, y)
+                EyTy[k] += np.einsum('t,ti,ti', w, y, y)
+                Ex[k] += np.einsum('t,ti->i', w, x)
+                Ey[k] += np.einsum('t,ti->i', w, y)
+                En[k] += np.sum(w)
+        _As = np.zeros((K,))
+        bs = np.zeros((K, D))
+        _Sigmas = np.zeros((K,))
+        for k in range(K):
+            if self.bias:
+                a = (ExTy[k]/ExTx[k] - Ex[k]@Ey[k]/ExTx[k]/En[k])/(1 - Ex[k]@Ex[k]/ExTx[k]/En[k])
+                b = (Ey[k] - a*Ex[k])/En[k]
+                sigma = ((a**2)*ExTx[k] + En[k]*b@b + EyTy[k] + 2*a*Ex[k]@b - 2*a*ExTy[k] - 2*Ey[k]@b) / (2*En[k])
+            else:
+                a = ExTy[k]/ExTx[k]
+                sigma = ((a**2)*ExTx[k] + EyTy[k] - 2*a*ExTy[k]) / (2*En[k])
+            _As[k] = a
+            bs[k] = b
+            _Sigmas[k] = sigma
+        unused = np.where(En < 1)[0]
+        used = np.where(En > 1)[0]
+        if len(unused) > 0:
+            for k in unused:
+                i = npr.choice(used)
+                _As[k] = _As[i] + 0.01 * npr.randn()
+                if self.bias:
+                    bs[k] = bs[i] + 0.01 * npr.randn(self.D)
+                _Sigmas[k] = _Sigmas[i]
+        self._As = _As
+        self.bs = bs
+        self._log_Sigmas = np.log(_Sigmas + 1e-16)
 
     def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
         return AutoRegressiveObservations.sample_x(self, z, xhist, input=input, tag=tag, with_noise=with_noise, rs=rs)
