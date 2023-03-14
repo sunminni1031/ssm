@@ -1497,9 +1497,10 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
 
 
 class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
-    def __init__(self, K, D, M=0, lags=1, bias=True):
+    def __init__(self, K, D, M=0, lags=1, bias=True, l2_penalty_A=1e-8,):
         super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias)
         assert lags == 1
+        self.l2_penalty_A = l2_penalty_A
         self._As = .80 * np.ones((K,))
         self._log_Sigmas_init = np.zeros((K,))
         self._log_Sigmas = np.zeros((K,))
@@ -1597,13 +1598,14 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         _As = np.zeros((K,))
         bs = np.zeros((K, D))
         _Sigmas = np.zeros((K,))
+        j = self.l2_penalty_A
         for k in range(K):
             if self.bias:
-                a = (ExTy[k]/ExTx[k] - Ex[k]@Ey[k]/ExTx[k]/En[k])/(1 - Ex[k]@Ex[k]/ExTx[k]/En[k])
+                a = (ExTy[k]/(ExTx[k]+j) - Ex[k]@Ey[k]/(ExTx[k]+j)/En[k])/(1 - Ex[k]@Ex[k]/(ExTx[k]+j)/En[k])
                 b = (Ey[k] - a*Ex[k])/En[k]
                 sigma = ((a**2)*ExTx[k] + En[k]*b@b + EyTy[k] + 2*a*Ex[k]@b - 2*a*ExTy[k] - 2*Ey[k]@b) / (2*En[k])
             else:
-                a = ExTy[k]/ExTx[k]
+                a = ExTy[k]/(ExTx[k]+j)
                 sigma = ((a**2)*ExTx[k] + EyTy[k] - 2*a*ExTy[k]) / (2*En[k])
             _As[k] = a
             bs[k] = b
