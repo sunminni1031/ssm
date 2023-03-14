@@ -1497,7 +1497,7 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
 
 
 class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
-    def __init__(self, K, D, M=0, lags=1, bias=True, l2_penalty_A=1e-8,):
+    def __init__(self, K, D, M=0, lags=1, bias=True, l2_penalty_A=0,):
         super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias)
         assert lags == 1
         self.l2_penalty_A = l2_penalty_A
