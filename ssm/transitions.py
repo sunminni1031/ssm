@@ -266,7 +266,7 @@ class InputDrivenTransitions(StickyTransitions):
 
 
 class InputDeterminedTransitions(Transitions):
-    def __init__(self, K, D, M=1):
+    def __init__(self, K, D, M=1, alpha=1, kappa=0):  # kappa=100
         super(InputDeterminedTransitions, self).__init__(K, D, M=M)
         assert M == 1
         self._log_Ps = []
@@ -275,6 +275,19 @@ class InputDeterminedTransitions(Transitions):
             Ps /= Ps.sum(axis=1, keepdims=True)
             self._log_Ps.append(np.log(Ps))
         self._log_Ps = np.array(self._log_Ps)
+        self.alpha = alpha
+        self.kappa = kappa
+
+    def log_prior(self):
+        lp = 0
+        if (self.alpha != 1) or (self.kappa != 0):
+            for i in range(2):
+                log_P = self._log_Ps[i]
+                log_P = log_P - logsumexp(log_P, axis=1, keepdims=True)
+                for k in range(self.K):
+                    alpha = self.alpha * np.ones(self.K) + self.kappa * (np.arange(self.K) == k)
+                    lp += np.dot((alpha-1), log_P[k])
+        return lp
 
     @property
     def params(self):
@@ -287,9 +300,6 @@ class InputDeterminedTransitions(Transitions):
     def permute(self, perm):
         for i in range(2):
             self._log_Ps[i] = self._log_Ps[i][np.ix_(perm, perm)]
-
-    def log_prior(self):
-        return 0
 
     def log_transition_matrices(self, data, input, mask, tag):
         T = data.shape[0]
@@ -305,6 +315,7 @@ class InputDeterminedTransitions(Transitions):
         for i in range(2):
             P = sum([np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in
                      zip(expectations, inputs)]) + 1e-32
+            P += self.kappa * np.eye(self.K) + (self.alpha-1) * np.ones((self.K, self.K))
             P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
             # Set rows that are all zero to uniform
             P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
