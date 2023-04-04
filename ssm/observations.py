@@ -1502,7 +1502,6 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         assert lags == 1
         self.l2_penalty_A = l2_penalty_A
         self._As = .80 * np.ones((K,))
-        self._log_Sigmas_init = np.zeros((K,))
         self._log_Sigmas = np.zeros((K,))
 
     @property
@@ -1513,16 +1512,6 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
     def As(self, value):
         assert value.shape == (self.K, self.D, self.D)
         self._As = value[:, 0, 0]
-
-    @property
-    def Sigmas_init(self):
-        return np.array([np.exp(Sk)*np.eye(self.D) for Sk in self._log_Sigmas_init])
-
-    @Sigmas_init.setter
-    def Sigmas_init(self, value):
-        assert value.shape == (self.K, self.D, self.D)
-        assert np.all(value[:, 0, 0] > 0)
-        self._log_Sigmas_init = np.log(value[:, 0, 0])
 
     @property
     def Sigmas(self):
@@ -1549,11 +1538,9 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
             self._As, self._log_Sigmas = value
 
     def permute(self, perm):
-        self.mu_init = self.mu_init[perm]
         self._As = self._As[perm]
         if self.bias:
             self.bs = self.bs[perm]
-        self._log_Sigmas_init = self._log_Sigmas_init[perm]
         self._log_Sigmas = self._log_Sigmas[perm]
 
     def _compute_mus(self, data, input, mask, tag):
@@ -1563,18 +1550,20 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         """
         K = self.K
         T, D = data.shape
+        data_ = np.concatenate((np.tile(data[:1], (self.lags, 1)), data), axis=0)
         # Instantaneous inputs, lagged data, and bias
-        mus = np.zeros((K, T-self.lags, D))
+        mus = np.zeros((K, T, D))
         for l in range(self.lags):
-            mus += self._As[:, None, None] * data[None, self.lags-l-1:-l-1, :]
+            mus += self._As[:, None, None] * data_[None, self.lags-l-1:-l-1, :]
         mus += self.bs[:, None, :]
-        # Pad with the initial condition
-        mus = np.concatenate((self.mu_init[:, None, :] * np.ones((self.K, self.lags, self.D)), mus), axis=1)
-        assert mus.shape == (self.K, T, D)
         return mus
 
     def log_likelihoods(self, data, input, mask, tag=None):
-        return AutoRegressiveObservations.log_likelihoods(self, data, input, mask, tag=tag)
+        assert np.all(mask), "Cannot compute likelihood of autoregressive obsevations with missing data."
+        mus = self._compute_mus(data, input, mask, tag)
+        ll_ar = np.column_stack([stats.multivariate_normal_logpdf(data, mu, Sigma)
+                                 for mu, Sigma in zip(mus, self.Sigmas)])
+        return ll_ar
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         K, D, M, lags = self.K, self.D, self.M, self.lags
@@ -1624,7 +1613,20 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         self._log_Sigmas = np.log(_Sigmas + 1e-16)
 
     def sample_x(self, z, xhist, input=None, tag=None, with_noise=True, rs=None):
-        return AutoRegressiveObservations.sample_x(self, z, xhist, input=input, tag=tag, with_noise=with_noise, rs=rs)
+        D, As, bs, Vs = self.D, self.As, self.bs, self.Vs
+        tmp_rs = npr if rs is None else rs
+        if xhist.shape[0] < self.lags:
+            if self._As[z] < 1:
+                mu = bs[z] / (1 - self._As[z])
+            else:
+                mu = bs[z]
+        else:
+            # Sample from the autoregressive distribution
+            mu = Vs[z].dot(input[:self.M]) + bs[z]
+            for l in range(self.lags):
+                mu += self._As[z] * xhist[-l-1]
+        S = np.linalg.cholesky(self.Sigmas[z]) if with_noise else 0
+        return mu + np.dot(S, tmp_rs.randn(D))
 
 
 # Robust autoregressive models with diagonal Student's t noise
