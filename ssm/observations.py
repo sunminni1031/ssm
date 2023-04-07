@@ -105,7 +105,6 @@ class Observations(object):
 class GaussianObservations(Observations):
     def __init__(self, K, D, M=0, seed=0):
         super(GaussianObservations, self).__init__(K, D, M, seed=seed)
-        self.rs = npr.RandomState(0)
         self.mus = self.rs.randn(K, D)
         self._sqrt_Sigmas = self.rs.randn(K, D, D)
 
