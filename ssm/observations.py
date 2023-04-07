@@ -20,8 +20,9 @@ class Observations(object):
     # D = number of observed dimensions
     # M = exogenous input dimensions (the inputs modulate the probability of discrete state transitions via a multiclass logistic regression)
 
-    def __init__(self, K, D, M=0):
+    def __init__(self, K, D, M=0, seed=0):
         self.K, self.D, self.M = K, D, M
+        self.rs = npr.RandomState(seed)
 
     @property
     def params(self):
@@ -48,7 +49,7 @@ class Observations(object):
 
         elif init_method.lower() =='random':
             # Random assignment
-            zs = [npr.choice(self.K, size=T) for T in Ts]
+            zs = [self.rs.choice(self.K, size=T) for T in Ts]
 
         else:
             raise Exception('Not an accepted initialization type: {}'.format(init_method))
@@ -102,10 +103,11 @@ class Observations(object):
 
 
 class GaussianObservations(Observations):
-    def __init__(self, K, D, M=0):
-        super(GaussianObservations, self).__init__(K, D, M)
-        self.mus = npr.randn(K, D)
-        self._sqrt_Sigmas = npr.randn(K, D, D)
+    def __init__(self, K, D, M=0, seed=0):
+        super(GaussianObservations, self).__init__(K, D, M, seed=seed)
+        self.rs = npr.RandomState(0)
+        self.mus = self.rs.randn(K, D)
+        self._sqrt_Sigmas = self.rs.randn(K, D, D)
 
     @property
     def params(self):
@@ -839,8 +841,8 @@ class _AutoRegressiveObservationsBase(Observations):
 
     where L is the number of lags and u_t is the input.
     """
-    def __init__(self, K, D, M=0, lags=1, bias=True):
-        super(_AutoRegressiveObservationsBase, self).__init__(K, D, M)
+    def __init__(self, K, D, M=0, lags=1, bias=True, seed=0):
+        super(_AutoRegressiveObservationsBase, self).__init__(K, D, M, seed=seed)
 
         # Distribution over initial point
         self.mu_init = np.zeros((K, D))
@@ -1497,8 +1499,8 @@ class IndependentAutoRegressiveObservations(_AutoRegressiveObservationsBase):
 
 
 class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
-    def __init__(self, K, D, M=0, lags=1, bias=True, l2_penalty_A=0,):
-        super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias)
+    def __init__(self, K, D, M=0, lags=1, bias=True, l2_penalty_A=0, seed=0):
+        super(ScalarAutoRegressiveObservationsNoInput, self).__init__(K, D, M=0, lags=lags, bias=bias, seed=seed)
         assert lags == 1
         self.l2_penalty_A = l2_penalty_A
         self._As = .80 * np.ones((K,))
@@ -1603,10 +1605,10 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         used = np.where(En > 1)[0]
         if len(unused) > 0:
             for k in unused:
-                i = npr.choice(used)
-                _As[k] = _As[i] + 0.01 * npr.randn()
+                i = self.rs.choice(used)
+                _As[k] = _As[i] + 0.01 * self.rs.randn()
                 if self.bias:
-                    bs[k] = bs[i] + 0.01 * npr.randn(self.D)
+                    bs[k] = bs[i] + 0.01 * self.rs.randn(self.D)
                 _Sigmas[k] = _Sigmas[i]
         self._As = _As
         self.bs = bs

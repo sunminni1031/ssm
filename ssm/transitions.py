@@ -266,12 +266,14 @@ class InputDrivenTransitions(StickyTransitions):
 
 
 class InputDeterminedTransitions(Transitions):
-    def __init__(self, K, D, M=1, alpha=1, kappa=0):  # kappa=100
+    def __init__(self, K, D, M=1, alpha=1, kappa=0, seed=0):  # kappa=100
         super(InputDeterminedTransitions, self).__init__(K, D, M=M)
         assert M == 1
         self._log_Ps = []
+        init_v = [0.95, 0.95]
+        self.rs = npr.RandomState(seed)
         for i in range(2):
-            Ps = .95 * np.eye(K) + .05 * npr.rand(K, K)
+            Ps = init_v[i] * np.eye(K) + (1-init_v[i]) * self.rs.rand(K, K)
             Ps /= Ps.sum(axis=1, keepdims=True)
             self._log_Ps.append(np.log(Ps))
         self._log_Ps = np.array(self._log_Ps)
@@ -315,7 +317,8 @@ class InputDeterminedTransitions(Transitions):
         for i in range(2):
             P = sum([np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in
                      zip(expectations, inputs)]) + 1e-32
-            P += self.kappa * np.eye(self.K) + (self.alpha-1) * np.ones((self.K, self.K))
+            if i == 0:
+                P += self.kappa * np.eye(self.K) + (self.alpha-1) * np.ones((self.K, self.K))
             P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
             # Set rows that are all zero to uniform
             P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
