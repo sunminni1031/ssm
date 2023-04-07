@@ -14,8 +14,9 @@ from ssm.optimizers import adam, bfgs, lbfgs, rmsprop, sgd
 
 
 class Transitions(object):
-    def __init__(self, K, D, M=0):
+    def __init__(self, K, D, M=0, seed=0):
         self.K, self.D, self.M = K, D, M
+        self.rand_state = npr.RandomState(seed)
 
     @property
     def params(self):
@@ -267,28 +268,29 @@ class InputDrivenTransitions(StickyTransitions):
 
 class InputDeterminedTransitions(Transitions):
     def __init__(self, K, D, M=1, alpha=1, kappa=0, seed=0):  # kappa=100
-        super(InputDeterminedTransitions, self).__init__(K, D, M=M)
+        super(InputDeterminedTransitions, self).__init__(K, D, M=M, seed=seed)
         assert M == 1
         self._log_Ps = []
         init_v = [0.95, 0.95]
-        self.rs = npr.RandomState(seed)
         for i in range(2):
-            Ps = init_v[i] * np.eye(K) + (1-init_v[i]) * self.rs.rand(K, K)
+            Ps = init_v[i] * np.eye(K) + (1-init_v[i]) * self.rand_state.rand(K, K)
             Ps /= Ps.sum(axis=1, keepdims=True)
             self._log_Ps.append(np.log(Ps))
         self._log_Ps = np.array(self._log_Ps)
-        self.alpha = alpha
-        self.kappa = kappa
+        self.alphas = [alpha, 1]
+        self.kappas = [kappa, 0]
 
     def log_prior(self):
         lp = 0
-        if (self.alpha != 1) or (self.kappa != 0):
-            for i in range(2):
+        for i in range(2):
+            alpha = self.alphas[i]
+            kappa = self.kappas[i]
+            if (alpha != 1) or (kappa != 0):
                 log_P = self._log_Ps[i]
                 log_P = log_P - logsumexp(log_P, axis=1, keepdims=True)
                 for k in range(self.K):
-                    alpha = self.alpha * np.ones(self.K) + self.kappa * (np.arange(self.K) == k)
-                    lp += np.dot((alpha-1), log_P[k])
+                    alpha_ = alpha * np.ones(self.K) + kappa * (np.arange(self.K) == k)
+                    lp += np.dot((alpha_-1), log_P[k])
         return lp
 
     @property
@@ -317,8 +319,7 @@ class InputDeterminedTransitions(Transitions):
         for i in range(2):
             P = sum([np.sum(Ezzp1[input[1:, 0] == i], axis=0) for (_, Ezzp1, _), input in
                      zip(expectations, inputs)]) + 1e-32
-            if i == 0:
-                P += self.kappa * np.eye(self.K) + (self.alpha-1) * np.ones((self.K, self.K))
+            P += self.kappas[i] * np.eye(self.K) + (self.alphas[i]-1) * np.ones((self.K, self.K))
             P = np.nan_to_num(P / P.sum(axis=-1, keepdims=True))
             # Set rows that are all zero to uniform
             P = np.where(P.sum(axis=-1, keepdims=True) == 0, 1.0 / K, P)
