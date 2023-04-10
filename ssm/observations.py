@@ -1591,7 +1591,7 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         j = self.l2_penalty_A
         for k in range(K):
             if self.bias:
-                a = (ExTy[k]/(ExTx[k]+j) - Ex[k]@Ey[k]/(ExTx[k]+j)/En[k])/(1 - Ex[k]@Ex[k]/(ExTx[k]+j)/En[k])
+                a = (ExTy[k]*En[k] - Ex[k]@Ey[k]) / ((ExTx[k]+j)*En[k] - Ex[k]@Ex[k])
                 b = (Ey[k] - a*Ex[k])/En[k]
                 sigma = ((a**2)*ExTx[k] + En[k]*b@b + EyTy[k] + 2*a*Ex[k]@b - 2*a*ExTy[k] - 2*Ey[k]@b) / (2*En[k])
             else:
