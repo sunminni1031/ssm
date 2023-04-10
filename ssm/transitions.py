@@ -86,8 +86,8 @@ class StationaryTransitions(Transitions):
     """
     Standard Hidden Markov Model with fixed initial distribution and transition matrix.
     """
-    def __init__(self, K, D, M=0):
-        super(StationaryTransitions, self).__init__(K, D, M=M)
+    def __init__(self, K, D, M=0, seed=0):
+        super(StationaryTransitions, self).__init__(K, D, M=M, seed=seed)
         Ps = .95 * np.eye(K) + .05 * npr.rand(K, K)
         Ps /= Ps.sum(axis=1, keepdims=True)
         self.log_Ps = np.log(Ps)
@@ -185,8 +185,8 @@ class StickyTransitions(StationaryTransitions):
 
     pi_k ~ Dir(alpha + kappa * e_k)
     """
-    def __init__(self, K, D, M=0, alpha=1, kappa=100):
-        super(StickyTransitions, self).__init__(K, D, M=M)
+    def __init__(self, K, D, M=0, alpha=1, kappa=100, seed=0):
+        super(StickyTransitions, self).__init__(K, D, M=M, seed=seed)
         self.alpha = alpha
         self.kappa = kappa
 
