@@ -277,8 +277,8 @@ class InputDeterminedTransitions(Transitions):
             Ps /= Ps.sum(axis=1, keepdims=True)
             self._log_Ps.append(np.log(Ps))
         self._log_Ps = np.array(self._log_Ps)
-        self.alphas = [alpha, 1]
-        self.kappas = [kappa, 0]
+        self.alphas = alpha if hasattr(alpha, '__iter__') else [alpha, alpha]
+        self.kappas = kappa if hasattr(kappa, '__iter__') else [kappa, kappa]
 
     def log_prior(self):
         lp = 0
