@@ -1596,6 +1596,7 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
                 sigma = ((a**2)*ExTx[k] + En[k]*b@b + EyTy[k] + 2*a*Ex[k]@b - 2*a*ExTy[k] - 2*Ey[k]@b) / (2*En[k])
             else:
                 a = ExTy[k]/(ExTx[k]+j)
+                b = np.zeros((D,))
                 sigma = ((a**2)*ExTx[k] + EyTy[k] - 2*a*ExTy[k]) / (2*En[k])
             _As[k] = a
             bs[k] = b
