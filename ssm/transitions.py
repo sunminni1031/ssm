@@ -332,6 +332,25 @@ class InputDeterminedTransitions(Transitions):
         return np.zeros((T - 1, D, D))
 
 
+class ConstrainedInputDeterminedTransitions(InputDeterminedTransitions):
+    def __init__(self, K, D, M=1,  alpha=1, kappa=0, seed=0):
+        Transitions.__init__(K, D, M=M, seed=seed)
+        assert M == 1
+        assert K == 2
+        self._log_Ps = np.array([[[0, -np.inf], [np.log(0.9), np.log(0.1)]],
+                                 [[np.log(0.05), np.log(0.95)], [-np.inf, 0]]])
+        self.alphas = alpha if hasattr(alpha, '__iter__') else [alpha, alpha]
+        self.kappas = kappa if hasattr(kappa, '__iter__') else [kappa, kappa]
+
+    def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
+        super(ConstrainedInputDeterminedTransitions, self).m_step(
+                    expectations, datas, inputs, masks, tags, **kwargs)
+        assert np.close(np.exp(self.log_Ps[0, 0, 1]), 0, atol=2*LOG_EPS)
+        assert np.close(np.exp(self.log_Ps[1, 1, 0]), 0, atol=2*LOG_EPS)
+        self.log_Ps[0][0] = [0, -np.inf]
+        self.log_Ps[1][1] = [-np.inf, 0]
+
+
 class RecurrentTransitions(InputDrivenTransitions):
     """
     Generalization of the input driven HMM in which the observations serve as future inputs
