@@ -1666,7 +1666,7 @@ class ScalarAutoRegressiveSegFit(ScalarAutoRegressiveObservationsNoInput):
         self.a_arr, self.b_arr, self.sigma_arr = value
 
     def permute(self, perm):
-        pass
+        raise ValueError('permute not implemented for class ScalarAutoRegressiveSegFit.')
 
     @ensure_args_are_lists
     def initialize(self, datas, inputs=None, masks=None, tags=None, init_method="random"):
