@@ -1651,10 +1651,10 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
 
 
 class ScalarAutoRegressiveSegFit(Observations):
-    def __init__(self, K, D, lags=1, bias=True, seed=0, **kwargs):
-        self.K, self.D = K, D
+    def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
+        self.K, self.D, self.M = K, D, M
         self.rs = npr.RandomState(seed)
-        assert (K == 2) & (lags == 1) & bias
+        assert (K == 2) & (M==1) & (lags == 1) & bias
         self.a_arr, self.b_arr, self.sigma_arr = None, None, None
 
     @property
@@ -1745,10 +1745,10 @@ class ScalarAutoRegressiveSegFit(Observations):
 
 
 class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
-    def __init__(self, K, D, lags=1, bias=True, seed=0, **kwargs):
-        self.K, self.D = K, D
+    def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
+        self.K, self.D, self.M = K, D, M
         self.rs = npr.RandomState(seed)
-        assert (K == 2) & (lags == 1) & bias
+        assert (K == 2) & (M == 1) & (lags == 1) & bias
         self.ak, self.b_arr, self.sigmak = None, None, None
         self.segk = None
 

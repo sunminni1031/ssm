@@ -334,7 +334,7 @@ class InputDeterminedTransitions(Transitions):
 
 class LeaveReturn(InputDeterminedTransitions):
     def __init__(self, K, D, M=1,  alpha=1, kappa=0, seed=0):
-        Transitions.__init__(K, D, M=M, seed=seed)
+        Transitions.__init__(self, K, D, M=M, seed=seed)
         assert M == 1
         assert K == 2
         self._log_Ps = np.array([[[0, -np.inf], [np.log(0.9), np.log(0.1)]],
