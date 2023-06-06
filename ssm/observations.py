@@ -1716,8 +1716,8 @@ class ScalarAutoRegressiveSegFit(Observations):
             for iseg in range(len(chng_idxs) - 1):
                 ist, ied = chng_idxs[iseg:(iseg + 2)]
                 inx = chng_idxs[min(iseg + 2, len(chng_idxs) - 1)]
-                x = data[(ist + 1):(inx + 1)]
-                w = Ez[(ist + 1):(inx + 1), input[ist + 1]]
+                x = data[max(ist, 0):(inx + 1)]
+                w = Ez[max(ist, 0):(inx + 1), input[ist + 1]]
                 ExTx = np.einsum('t,ti,ti', w[1:], x[:-1], x[:-1])
                 ExTy = np.einsum('t,ti,ti', w[1:], x[:-1], x[1:])
                 EyTy = np.einsum('t,ti,ti', w[1:], x[1:], x[1:])
@@ -1778,11 +1778,12 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
             input = input.flatten()
             chng_idxs = [-1] + list(np.argwhere(np.diff(input)).flatten()) + [len(input) - 1]
             for iseg in range(len(chng_idxs)-1):
-                k = input[ist+1]
-                ist, ied = chng_idxs[iseg:(iseg+2)]
-                inx = chng_idxs[min(iseg+2, len(chng_idxs)-1)]
-                x = data[(ist+1):(inx+1)]
-                w = Ez[(ist+1):(inx+1), k]
+                ist, ied = chng_idxs[iseg:(iseg + 2)]
+                inx = chng_idxs[min(iseg + 2, len(chng_idxs) - 1)]
+                ipairs.append((ist, inx))
+                k = input[ist + 1]
+                x = data[max(ist, 0):(inx + 1)]
+                w = Ez[max(ist, 0):(inx + 1), k]
                 ExTx[k] += np.einsum('t,ti,ti', w[1:], x[:-1], x[:-1])
                 ExTy[k] += np.einsum('t,ti,ti', w[1:], x[:-1], x[1:])
                 EyTy[k] += np.einsum('t,ti,ti', w[1:], x[1:], x[1:])
@@ -1790,18 +1791,19 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
                 Ex.append(np.einsum('t,ti->i', w[1:], x[:-1]))
                 Ey.append(np.einsum('t,ti->i', w[1:], x[1:]))
                 E1.append(np.sum(w[1:]))
-                ipairs.append((ist, inx))
         Ek, Ex, Ey, E1 = np.array(Ek), np.array(Ex), np.array(Ey), np.array(E1)
+        EyEx = np.einsum('ti,ti->t', Ey, Ex)
+        ExEx = np.einsum('ti,ti->t', Ex, Ex)
         for k in range(K):
-            tmp1 = np.sum((np.einsum('ti,ti->t', Ey, Ex)/E1)[Ek == k])
-            tmp2 = np.sum((np.einsum('ti,ti->t', Ex, Ex)/E1)[Ek == k])
-            ak[k] = (ExTy[k] / ExTx[k] - 1 / ExTx[k] * tmp1) / (1 - 1 / ExTx[k] * tmp2)
+            tmp1 = np.sum((EyEx/E1)[Ek == k])
+            tmp2 = np.sum((ExEx/E1)[Ek == k])
+            ak[k] = (ExTy[k] - tmp1) / (ExTx[k] - tmp2)
         for iseg, k in enumerate(Ek):
             b_arr.append((Ey[iseg] - ak[k]*Ex[iseg])/E1[iseg])
         for iseg, (ist, inx) in enumerate(ipairs):
             k = Ek[iseg]
-            x = datas[0][(ist + 1):(inx + 1)]
-            w = expectations[0][0][(ist + 1):(inx + 1), k]
+            x = datas[0][max(ist, 0):(inx + 1)]
+            w = expectations[0][0][max(ist, 0):(inx + 1), k]
             err = ak[k] * x[:-1] + b_arr[iseg] - x[1:]
             sigmas[k] += np.einsum('t, ti, ti', w[1:], err, err)
         for k in range(K):
