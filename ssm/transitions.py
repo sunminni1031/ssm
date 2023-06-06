@@ -332,7 +332,7 @@ class InputDeterminedTransitions(Transitions):
         return np.zeros((T - 1, D, D))
 
 
-class ConstrainedInputDeterminedTransitions(InputDeterminedTransitions):
+class LeaveReturn(InputDeterminedTransitions):
     def __init__(self, K, D, M=1,  alpha=1, kappa=0, seed=0):
         Transitions.__init__(K, D, M=M, seed=seed)
         assert M == 1
@@ -343,7 +343,7 @@ class ConstrainedInputDeterminedTransitions(InputDeterminedTransitions):
         self.kappas = kappa if hasattr(kappa, '__iter__') else [kappa, kappa]
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
-        super(ConstrainedInputDeterminedTransitions, self).m_step(
+        super(LeaveReturn, self).m_step(
                     expectations, datas, inputs, masks, tags, **kwargs)
         assert np.close(np.exp(self.log_Ps[0, 0, 1]), 0, atol=2*LOG_EPS)
         assert np.close(np.exp(self.log_Ps[1, 1, 0]), 0, atol=2*LOG_EPS)
