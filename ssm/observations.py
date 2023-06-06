@@ -1670,7 +1670,7 @@ class ScalarAutoRegressiveSegFit(Observations):
 
     @ensure_args_are_lists
     def initialize(self, datas, inputs=None, masks=None, tags=None, init_method="random"):
-        zs = [inpt.flatten() for inpt in inputs]
+        zs = [inpt.flatten().astype(int) for inpt in inputs]
         # Make a one-hot encoding of z and treat it as HMM expectations
         Ezs = [one_hot(z, self.K) for z in zs]
         expectations = [(Ez, None, None) for Ez in Ezs]
@@ -1680,8 +1680,8 @@ class ScalarAutoRegressiveSegFit(Observations):
     def _compute_mus_Sigmas(self, data, input, mask, tag):
         T, D = data.shape
         mus = np.zeros((self.K, T, D))
-        Sigmas = np.zeros(self.K, T, D, D)
-        input = input.flatten()
+        Sigmas = np.zeros((self.K, T, D, D))
+        input = input.flatten().astype(int)
         iseg = 0
         for t in range(T):
             if t > 0:
@@ -1711,7 +1711,7 @@ class ScalarAutoRegressiveSegFit(Observations):
         assert len(datas) == 1
         a_arr, b_arr, sigma_arr = [], [], []
         for (Ez, _, _), data, input in zip(expectations, datas, inputs):
-            input = input.flatten()
+            input = input.flatten().astype(int)
             chng_idxs = [-1] + list(np.argwhere(np.diff(input)).flatten()) + [len(input) - 1]
             for iseg in range(len(chng_idxs) - 1):
                 ist, ied = chng_idxs[iseg:(iseg + 2)]
@@ -1740,7 +1740,7 @@ class ScalarAutoRegressiveSegFit(Observations):
             mu = b / (1 - a) if a < 1 else b
         else:
             mu = a * xhist[-1] + b
-        noise = np.sqrt(sigma) * tmp_rs.randn(D) if with_noise else 0
+        noise = np.sqrt(sigma) * tmp_rs.randn(self.D) if with_noise else 0
         return mu + noise
 
 
@@ -1762,20 +1762,21 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
 
     @property
     def a_arr(self):
-        return [ak[k] for k in segk]
+        return [self.ak[k] for k in self.segk]
 
     @property
     def sigma_arr(self):
-        return [sigmak[k] for k in segk]
+        return [self.sigmak[k] for k in self.segk]
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         assert len(datas) == 1
         ak, b_arr, sigmak = [0, 0], [], [0, 0]
+        K = self.K
         ExTx, ExTy, EyTy = np.zeros((K,)), np.zeros((K,)), np.zeros((K,))
         Ek, Ex, Ey, E1 = [], [], [], []  #np.zeros((num_segs,) or (num_segs, D))
         ipairs = []
         for (Ez, _, _), data, input in zip(expectations, datas, inputs):
-            input = input.flatten()
+            input = input.flatten().astype(int)
             chng_idxs = [-1] + list(np.argwhere(np.diff(input)).flatten()) + [len(input) - 1]
             for iseg in range(len(chng_idxs)-1):
                 ist, ied = chng_idxs[iseg:(iseg + 2)]
@@ -1805,7 +1806,7 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
             x = datas[0][max(ist, 0):(inx + 1)]
             w = expectations[0][0][max(ist, 0):(inx + 1), k]
             err = ak[k] * x[:-1] + b_arr[iseg] - x[1:]
-            sigmas[k] += np.einsum('t, ti, ti', w[1:], err, err)
+            sigmak[k] += np.einsum('t, ti, ti', w[1:], err, err)
         for k in range(K):
             sigmak[k] /= 2*np.sum(E1[Ek == k])
         self.ak, self.b_arr, self.sigmak = ak, b_arr, sigmak
