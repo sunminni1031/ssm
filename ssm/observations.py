@@ -1650,11 +1650,11 @@ class ScalarAutoRegressiveObservationsNoInput(_AutoRegressiveObservationsBase):
         return mu + np.dot(S, tmp_rs.randn(D))
 
 
-class ScalarAutoRegressiveSegFit(ScalarAutoRegressiveObservationsNoInput):
-    def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
-        self.K, self.D, self.M = K, D, M
+class ScalarAutoRegressiveSegFit(Observations):
+    def __init__(self, K, D, lags=1, bias=True, seed=0, **kwargs):
+        self.K, self.D = K, D
         self.rs = npr.RandomState(seed)
-        assert (K == 2) & (M == 1) & (lags == 1) & bias
+        assert (K == 2) & (lags == 1) & bias
         self.a_arr, self.b_arr, self.sigma_arr = None, None, None
 
     @property
@@ -1677,10 +1677,10 @@ class ScalarAutoRegressiveSegFit(ScalarAutoRegressiveObservationsNoInput):
         # Set the variances all at once to use the setter
         self.m_step(expectations, datas, inputs, masks, tags)
 
-    def _compute_mus(self, data, input, mask, tag):
-        K = self.K
+    def _compute_mus_Sigmas(self, data, input, mask, tag):
         T, D = data.shape
-        mus = np.zeros((K, T, D))
+        mus = np.zeros((self.K, T, D))
+        Sigmas = np.zeros(self.K, T, D, D)
         input = input.flatten()
         iseg = 0
         for t in range(T):
@@ -1691,11 +1691,21 @@ class ScalarAutoRegressiveSegFit(ScalarAutoRegressiveObservationsNoInput):
                 data_pre = data[t-1] if t > 0 else data[0]
                 k, ii = input[t], iseg
                 mus[k, t, :] = self.a_arr[ii] * data_pre + self.b_arr[ii]
+                Sigmas[k, t, ...] = self.sigma_arr[ii] * np.eye(D)
                 mus[1-k, t, :] = np.zeros((2,))
+                Sigmas[1-k, t, ...] = self.sigma_arr[ii] * np.eye(D)
             else:
                 for k, ii in [(input[t], iseg), (1-input[t], iseg-1)]:
                     mus[k, t, :] = self.a_arr[ii] * data[t-1] + self.b_arr[ii]
-        return mus
+                    Sigmas[k, t, ...] = self.sigma_arr[ii] * np.eye(D)
+        return mus, Sigmas
+
+    def log_likelihoods(self, data, input, mask, tag=None):
+        assert np.all(mask), "Cannot compute likelihood of autoregressive obsevations with missing data."
+        mus, Sigmas = self._compute_mus_Sigmas(data, input, mask, tag)
+        ll_ar = np.column_stack([stats.multivariate_normal_logpdf(data, mu, Sigma)
+                                 for mu, Sigma in zip(mus, Sigmas)])
+        return ll_ar
 
     def m_step(self, expectations, datas, inputs, masks, tags, **kwargs):
         assert len(datas) == 1
@@ -1735,10 +1745,10 @@ class ScalarAutoRegressiveSegFit(ScalarAutoRegressiveObservationsNoInput):
 
 
 class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
-    def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
-        self.K, self.D, self.M = K, D, M
+    def __init__(self, K, D, lags=1, bias=True, seed=0, **kwargs):
+        self.K, self.D = K, D
         self.rs = npr.RandomState(seed)
-        assert (K == 2) & (M == 1) & (lags == 1) & bias
+        assert (K == 2) & (lags == 1) & bias
         self.ak, self.b_arr, self.sigmak = None, None, None
         self.segk = None
 
