@@ -1654,7 +1654,7 @@ class ScalarAutoRegressiveSegFit(Observations):
     def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
         self.K, self.D, self.M = K, D, M
         self.rs = npr.RandomState(seed)
-        assert (K == 2) & (M==1) & (lags == 1) & bias
+        assert (K == 2) & (M == 1) & (lags == 1) & bias
         self.a_arr, self.b_arr, self.sigma_arr = None, None, None
 
     @property
