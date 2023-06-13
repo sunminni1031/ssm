@@ -1796,11 +1796,16 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
         EyEx = np.einsum('ti,ti->t', Ey, Ex)
         ExEx = np.einsum('ti,ti->t', Ex, Ex)
         for k in range(K):
-            tmp1 = np.sum((EyEx/E1)[Ek == k])
-            tmp2 = np.sum((ExEx/E1)[Ek == k])
+            cond = (Ek == k) & (E1 > 0)
+            tmp1 = np.sum(EyEx[cond] / E1[cond])
+            tmp2 = np.sum(ExEx[cond] / E1[cond])
             ak[k] = (ExTy[k] - tmp1) / (ExTx[k] - tmp2)
         for iseg, k in enumerate(Ek):
-            b_arr.append((Ey[iseg] - ak[k]*Ex[iseg])/E1[iseg])
+            if E1[iseg] > 0:
+                b_iseg = (Ey[iseg] - ak[k]*Ex[iseg]) / E1[iseg]
+            else:
+                b_iseg = np.array([0, 0])
+            b_arr.append(b_iseg)
         for iseg, (ist, inx) in enumerate(ipairs):
             k = Ek[iseg]
             x = datas[0][max(ist, 0):(inx + 1)]
