@@ -337,8 +337,10 @@ class LeaveReturn(InputDeterminedTransitions):
         Transitions.__init__(self, K, D, M=M, seed=seed)
         assert M == 1
         assert K == 2
-        self._log_Ps = np.array([[[0, -np.inf], [np.log(0.05), np.log(0.95)]],
-                                 [[np.log(0.25), np.log(0.75)], [-np.inf, 0]]])
+        prob_011 = self.rand_state.uniform(low=0.1, high=0.9)
+        prob_100 = self.rand_state.uniform(low=0.1, high=0.3)
+        self._log_Ps = np.array([[[0, -np.inf], [np.log(1-prob_011), np.log(prob_011)]],
+                                 [[np.log(prob_100), np.log(1-prob_100)], [-np.inf, 0]]])
         self.alphas = alpha if hasattr(alpha, '__iter__') else [alpha, alpha]
         self.kappas = kappa if hasattr(kappa, '__iter__') else [kappa, kappa]
 
