@@ -1836,20 +1836,26 @@ class ScalarAutoRegressiveReinforcedBiases(ScalarAutoRegressiveSegFit):
     def params(self, value):
         self.ak, self.sigmak, self.b0k, self.decay = value
 
+    def _compute_xmems(self, data, input, mask, tag):
+        T, D = data.shape
+        input = input.flatten().astype(int)
+        xmems = [[], []]
+        for k in range(2):
+            xmems[k].append(self.b0k[k])
+        for t in range(1, T):
+            xflag = {0: -1, 1: 0, -1: 1}[input[t] - input[t - 1]]
+            for k in range(2):
+                cur_coef = self.decay if k == xflag else 1.
+                xmems[k].append(cur_coef * xmems[k][t - 1] + (1 - cur_coef) * data[t - 1])
+        return np.array(xmems)
+
     def _compute_mus_Sigmas(self, data, input, mask, tag):
         T, D = data.shape
         mus = [[],[]]
         Sigmas = [[],[]]
         input = input.flatten().astype(int)
-        xmems = [[], []]
-        for k in range(2):
-            xmems[k].append(self.b0k[k])
+        xmems = self._compute_xmems(self, data, input, mask, tag)
         for t in range(T):
-            if t > 0:
-                xflag = {0: -1, 1: 0, -1: 1}[input[t] - input[t - 1]]
-                for k in range(2):
-                    cur_coef = self.decay if k == xflag else 1.
-                    xmems[k].append(cur_coef * xmems[k][t - 1] + (1 - cur_coef) * data[t - 1])
             data_pre = data[t - 1] if t > 0 else data[0]
             for k in range(2):
                 mus[k].append(self.ak[k] * data_pre + (1 - self.ak[k]) * xmems[k][t])
