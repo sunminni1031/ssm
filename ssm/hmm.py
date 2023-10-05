@@ -100,6 +100,7 @@ class HMM(object):
             scalar_no_input_ar=obs.ScalarAutoRegressiveObservationsNoInput,
             ar_segfit=obs.ScalarAutoRegressiveSegFit,
             ar_trajfit=obs.ScalarAutoRegressiveTrajFit,
+            ar_rbias=obs.ScalarAutoRegressiveReinforcedBiases,
             diagonal_ar=obs.AutoRegressiveDiagonalNoiseObservations,
             diagonal_autoregressive=obs.AutoRegressiveDiagonalNoiseObservations,
             independent_ar=obs.IndependentAutoRegressiveObservations,

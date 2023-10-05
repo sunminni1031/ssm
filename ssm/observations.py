@@ -1819,6 +1819,49 @@ class ScalarAutoRegressiveTrajFit(ScalarAutoRegressiveSegFit):
         return
 
 
+class ScalarAutoRegressiveReinforcedBiases(ScalarAutoRegressiveSegFit):
+    def __init__(self, K, D, M=1, lags=1, bias=True, seed=0, **kwargs):
+        self.K, self.D, self.M = K, D, M
+        self.rs = npr.RandomState(seed)
+        assert (K == 2) & (M == 1) & (lags == 1) & bias
+        self.ak, self.sigmak = 0.5*np.ones(2), 0.5*np.ones(2)
+        self.b0k, self.decay = np.zeros((2, 2)), 0.5
+        self.segk = None
+
+    @property
+    def params(self):
+        return self.ak, self.sigmak, self.b0k, self.decay
+
+    @params.setter
+    def params(self, value):
+        self.ak, self.sigmak, self.b0k, self.decay = value
+
+    def _compute_mus_Sigmas(self, data, input, mask, tag):
+        T, D = data.shape
+        mus = [[],[]]
+        Sigmas = [[],[]]
+        input = input.flatten().astype(int)
+        xmems = [[], []]
+        for k in range(2):
+            xmems[k].append(self.b0k[k])
+        for t in range(T):
+            if t > 0:
+                xflag = {0: -1, 1: 0, -1: 1}[input[t] - input[t - 1]]
+                for k in range(2):
+                    cur_coef = self.decay if k == xflag else 1.
+                    xmems[k].append(cur_coef * xmems[k][t - 1] + (1 - cur_coef) * data[t - 1])
+            data_pre = data[t - 1] if t > 0 else data[0]
+            for k in range(2):
+                mus[k].append(self.ak[k] * data_pre + (1 - self.ak[k]) * xmems[k][t])
+                Sigmas[k].append(self.sigmak[k] * np.eye(D))
+        return np.array(mus), np.array(Sigmas)
+
+    def m_step(self, expectations, datas, inputs, masks, tags, optimizer="bfgs", **kwargs):
+        Observations.m_step(self, expectations, datas, inputs, masks, tags,
+                            optimizer=optimizer, **kwargs)
+        return
+
+
 # Robust autoregressive models with diagonal Student's t noise
 class _RobustAutoRegressiveObservationsMixin(object):
     """
