@@ -1854,7 +1854,7 @@ class ScalarAutoRegressiveReinforcedBiases(ScalarAutoRegressiveSegFit):
         mus = [[],[]]
         Sigmas = [[],[]]
         input = input.flatten().astype(int)
-        xmems = self._compute_xmems(self, data, input, mask, tag)
+        xmems = self._compute_xmems(data, input, mask, tag)
         for t in range(T):
             data_pre = data[t - 1] if t > 0 else data[0]
             for k in range(2):
